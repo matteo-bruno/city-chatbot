@@ -10,6 +10,8 @@ Design notes:
   which stops the model from inventing units or mixing modes up.
 * Tool order is fixed and the definitions carry no volatile text, so they sit
   in front of the prompt-cache breakpoint.
+* The schemas here are provider-neutral `ToolSpec`s. Each provider translates
+  them into its own dialect, so adding a model API does not touch this file.
 """
 
 from __future__ import annotations
@@ -20,12 +22,17 @@ from typing import Any
 
 from .citydata import THRESHOLD_MIN
 from .context import CityContext, OutsideCoverage, PlaceNotFound
+from .providers.base import ToolSpec
 
 MAX_COMPARE_AREAS = 6
 
 
-def tool_definitions(context: CityContext) -> list[dict]:
-    """Client tool schemas, specialised with this city's vocabulary."""
+def tool_specs(context: CityContext) -> list[ToolSpec]:
+    """Tool schemas, specialised with this city's vocabulary.
+
+    Provider-neutral: `parameters` is plain JSON Schema. Keep the order fixed,
+    since it is part of every provider's cacheable request prefix.
+    """
     store = context.store
     modes = [store.mode_label(m) for m in store.modes]
     indicators = ([store.aggregate] if store.aggregate else []) + list(store.categories)
@@ -184,17 +191,18 @@ def tool_definitions(context: CityContext) -> list[dict]:
         },
     ]
 
-    if context.settings.web_search:
-        web_tool: dict[str, Any] = {
-            "type": "web_search_20260209",
-            "name": "web_search",
-            "max_uses": context.settings.web_search_max_uses,
-        }
-        if context.settings.web_search_allowed_domains:
-            web_tool["allowed_domains"] = context.settings.web_search_allowed_domains
-        definitions.append(web_tool)
-
-    return definitions
+    # Web search is not a client tool: every provider runs it server-side, in
+    # its own way (Anthropic's `web_search` tool, Gemini's search grounding).
+    # The provider adds it from the settings, so it is absent here by design.
+    return [
+        ToolSpec(
+            name=entry["name"],
+            description=entry["description"],
+            parameters={k: v for k, v in entry["input_schema"].items() if k != "required"},
+            required=tuple(entry["input_schema"].get("required", ())),
+        )
+        for entry in definitions
+    ]
 
 
 # --------------------------------------------------------------------- helpers

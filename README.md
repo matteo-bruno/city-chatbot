@@ -2,9 +2,10 @@
 
 A small, portable chatbot that answers questions about one city's
 **15-minute-city accessibility data**, about the concept, and about the
-methodology behind the numbers. It runs on the Claude API and is designed to be
-lifted into another website: the assistant is a plain Python package, the HTTP
-layer is ~150 lines of FastAPI, and the front end is a single static HTML file.
+methodology behind the numbers. It runs on **Gemini or Claude**, chosen with
+one environment variable, and is designed to be lifted into another website:
+the assistant is a plain Python package, the HTTP layer is ~180 lines of
+FastAPI, and the front end is a single static HTML file.
 
 Questions it is built for:
 
@@ -29,8 +30,10 @@ below. Tested on 3.10, 3.12 and 3.13.
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env        # then put your key in ANTHROPIC_API_KEY
+cp .env.example .env        # then put your key in GEMINI_API_KEY
 set -a && source .env && set +a
+
+python scripts/check_provider.py    # one real round trip, confirms key + model
 
 python -m citychat.cli --check     # loads the data, no API call
 python -m citychat.cli             # terminal chat
@@ -90,11 +93,12 @@ interpreter the project actually uses.
                   knowledge/core/*.md ─┤              │ searched on demand
                   (always in prompt)   │              │
                                       ▼              ▼
-                              ┌──────────────────────────┐
-  place names ───────────────►│  CityContext + CityAgent │◄──► Claude API
-  (gazetteer / geocoder)      └────────────┬─────────────┘     (6 tools)
-                                           ▼
-                             citychat/server.py  →  /api/chat, /api/chat/stream
+                              ┌──────────────────────────┐        ┌──────────┐
+  place names ───────────────►│  CityContext + CityAgent │◄──────►│ Provider │
+  (gazetteer / geocoder)      └────────────┬─────────────┘ 6 tools└────┬─────┘
+                                           ▼                           ▼
+                             citychat/server.py            Gemini API │ Claude API
+                             /api/chat, /api/chat/stream
 ```
 
 Three design decisions worth knowing about:
@@ -212,7 +216,7 @@ what was extracted.
 | `GET /` | the bundled demo page |
 
 **Stateless by default**, which is what makes it easy to embed and to scale:
-send the `history` you got back with the next `message`.
+send the `history` and the `provider` you got back with the next `message`.
 
 ```bash
 curl -s localhost:8000/api/chat -H 'Content-Type: application/json' \
@@ -223,11 +227,16 @@ curl -s localhost:8000/api/chat -H 'Content-Type: application/json' \
 {
   "reply": "…",
   "city": "Milan",
-  "history": [{"role": "user", "content": "…"}, {"role": "assistant", "content": [...]}],
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "history": [{"role": "user", "parts": [{"text": "…"}]}, {"role": "model", "parts": [...]}],
   "tool_calls": [{"name": "area_accessibility", "input": {"place": "Rogoredo"}, "is_error": false}],
-  "usage": {"input_tokens": 120, "cache_read_input_tokens": 4100, "output_tokens": 210}
+  "usage": {"promptTokenCount": 4200, "candidatesTokenCount": 210, "totalTokenCount": 4410}
 }
 ```
+
+`usage` is passed through from the provider as-is, so its keys differ between
+the two (`promptTokenCount` on Gemini, `input_tokens` on Claude).
 
 Pass `"session_id": "new"` instead of `history` if the front end would rather
 not hold the transcript; the server then keeps it in a capped in-process dict
@@ -261,51 +270,85 @@ and a final `done` carrying the full text, the updated history and token usage.
 - **Never expose the Claude key to the browser.** All calls go through this
   backend, which is the other reason the HTTP layer exists.
 
-## Changing the model
+## Choosing the provider and model
 
-One environment variable:
+Two environment variables. The default is Gemini Flash.
 
 ```bash
-CITYCHAT_MODEL=claude-sonnet-5 python -m citychat.cli
-# or put it in .env, or pass it to uvicorn:
-CITYCHAT_MODEL=claude-sonnet-5 uvicorn citychat.server:app
+CITYCHAT_PROVIDER=gemini     CITYCHAT_MODEL=              # default
+CITYCHAT_PROVIDER=anthropic  CITYCHAT_MODEL=claude-opus-5
 ```
+
+An empty `CITYCHAT_MODEL` means "the provider's own default"
+(`gemini-3.8-flash`, or `claude-opus-5` for Anthropic). Each provider reads its
+own key, so both can stay in `.env` and switching is one variable:
+
+| Provider | Key | Default model | Get a key |
+|---|---|---|---|
+| `gemini` | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | `gemini-3.8-flash` | https://aistudio.google.com/apikey |
+| `anthropic` | `ANTHROPIC_API_KEY` | `claude-opus-5` | https://console.anthropic.com |
+
+**Check the model id before anything else.** Google's model names move, so
+confirm what your key can actually use rather than trusting the default:
+
+```bash
+python scripts/check_provider.py --list-models   # names this key can use
+python scripts/check_provider.py                 # one real tool-calling round trip
+python scripts/check_provider.py --dry-run       # configuration only, no API call
+```
+
+If the configured model does not exist, the error names the models that do.
+
+### Claude model options
 
 Model ids are complete as written below — never append a date suffix.
 
-| `CITYCHAT_MODEL` | $ / MTok in-out | Notes for this workload |
+| `CITYCHAT_MODEL` | $ / MTok in‑out | Notes for this workload |
 |---|---|---|
-| `claude-opus-5` *(default)* | 5 / 25 | Best judgement on the interpretive part: caveats, comparisons, when to say "close but no". |
-| `claude-sonnet-5` | 2 / 10 | The sensible cost saving. The tools do the reasoning-heavy work, so quality holds up well here. |
-| `claude-haiku-4-5` | 1 / 5 | Cheapest. 200K context. Fine for lookup questions, weaker at the methodology discussion. |
+| `claude-opus-5` | 5 / 25 | Best judgement on the interpretive part: caveats, comparisons, "close but no". |
+| `claude-sonnet-5` | 2 / 10 | The sensible cost saving. The tools do the reasoning-heavy work, so quality holds up well. |
+| `claude-haiku-4-5` | 1 / 5 | Cheapest. 200K context. Fine for lookups, weaker at methodology discussion. |
 | `claude-opus-4-8` | 5 / 25 | Previous Opus generation, if you have a reason to pin it. |
-| `claude-fable-5-1` | 10 / 50 | Anthropic's most capable model; overkill for this, and priced accordingly. |
+| `claude-fable-5-1` | 10 / 50 | Anthropic's most capable model; overkill here, and priced accordingly. |
 
-Two request parameters are model-gated, and the agent handles both for you —
-it drops the parameter and retries the same turn the first time the API
-rejects it, logs a warning naming the variable to set, and leaves it off for
-the rest of the process. So a model swap needs nothing else. To set them
-explicitly and skip the warning:
+### Per-provider options
 
-- **`CITYCHAT_EFFORT`** — `low`/`medium`/`high`/`xhigh`/`max` on Opus 5,
-  Sonnet 5 and Opus 4.6+. Haiku 4.5 does not accept it at all. Set
-  `CITYCHAT_EFFORT=` (empty) to omit it and use the model's own default.
-  `low` is noticeably faster and is enough for plain lookups; `high` is worth
-  it if you want more careful hedging on borderline verdicts.
-- **`CITYCHAT_REFUSAL_FALLBACK`** — only meaningful on models that can return
-  `stop_reason: "refusal"` (Opus 5, Fable 5.x). Set `0` for anything else, and
-  for gateways that reject beta flags.
+These only apply to their own provider and are ignored by the other, so you
+can leave both sets configured.
 
-```bash
-CITYCHAT_MODEL=claude-haiku-4-5 CITYCHAT_EFFORT= CITYCHAT_REFUSAL_FALLBACK=0 \
-    python -m citychat.cli -v "Is Rogoredo a 15-minute neighbourhood?"
-```
+**Gemini**
+- `CITYCHAT_THINKING_BUDGET` — thinking tokens on models that support it. `0`
+  is the fastest and cheapest; empty leaves the model's default.
+- `CITYCHAT_TEMPERATURE` — empty leaves the model's default.
+- `CITYCHAT_GEMINI_BASE_URL` — for a proxy or a regional endpoint.
 
-`-v` prints the tool calls and the token usage per turn, which is how you
-check the prompt cache is working: `cache_read_input_tokens` should be around
-4,000 from the second turn onwards, with `input_tokens` in the low hundreds.
-Prompt caches are per-model, so the first turn after a model switch pays one
-cold cache write and the rest come from cache again.
+**Claude**
+- `CITYCHAT_EFFORT` — `low`/`medium`/`high`/`xhigh`/`max` on Opus 5, Sonnet 5
+  and Opus 4.6+. Haiku 4.5 does not accept it. Empty uses the model's default.
+- `CITYCHAT_REFUSAL_FALLBACK` — only meaningful on models that can return
+  `stop_reason: "refusal"`. Set `0` for anything else.
+
+Both providers drop a parameter the model rejects and retry the same turn once,
+logging which variable to set permanently, so a model swap needs nothing else.
+
+### Adding a third provider
+
+Implement `citychat/providers/base.Provider` and add one line to `BUILDERS` in
+`citychat/providers/__init__.py`. The conversation loop, the tools, the prompt
+and the HTTP layer do not change: a provider owns its request shape, its
+streaming format, its history dialect and its error vocabulary, and nothing
+else knows the difference. `citychat/providers/gemini.py` is the shorter of the
+two existing ones to copy from.
+
+### Conversation histories are provider-native
+
+A transcript is content blocks on Claude and `contents` parts on Gemini, so it
+cannot be replayed against the other API. `/api/chat` therefore returns a
+`provider` field alongside `history`; send it back with the history and a
+mismatch is refused with **409** (and a message saying to start over) rather
+than being sent as a malformed request. The demo page handles the 409 by
+clearing its transcript. `session_id` mode records the provider server-side and
+does the same.
 
 ## Configuration
 
@@ -314,18 +357,22 @@ The ones that matter most:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | the only required setting |
-| `CITYCHAT_MODEL` | `claude-opus-5` | `claude-sonnet-5` is cheaper and fine here |
-| `CITYCHAT_EFFORT` | `medium` | `low` for speed, `high` for harder analysis |
+| `CITYCHAT_PROVIDER` | `gemini` | `gemini` or `anthropic` |
+| `GEMINI_API_KEY` | — | required when the provider is `gemini` |
+| `ANTHROPIC_API_KEY` | — | required when the provider is `anthropic` |
+| `CITYCHAT_MODEL` | the provider's default | `gemini-3.8-flash` / `claude-opus-5` |
 | `CITYCHAT_CITY` | the only prepared one | slug under `data/cities/` |
 | `CITYCHAT_GEOCODER` | `none` | `nominatim` to resolve arbitrary addresses |
-| `CITYCHAT_WEB_SEARCH` | `0` | `1` to add Anthropic's server-side web search |
+| `CITYCHAT_WEB_SEARCH` | `0` | `1` to add the provider's own server-side search |
 | `CITYCHAT_ALLOW_ORIGINS` | `*` | narrow this in production |
-| `CITYCHAT_REFUSAL_FALLBACK` | `1` | server-side fallback if a turn is declined; set `0` if your gateway rejects the beta flag |
+| `CITYCHAT_MAX_TOOL_ROUNDS` | `8` | tool rounds one answer may spend |
 
 With web search enabled the model is instructed to use it only for context the
 dataset and papers cannot supply, and never to produce a number for this city's
-own accessibility.
+own accessibility. Each provider runs it its own way: Anthropic's `web_search`
+server tool, or Gemini's Google Search grounding. Some Gemini versions refuse
+to combine grounding with function calling; the provider notices, drops the
+grounding and retries, so tools always win.
 
 ## What the bot will and will not do
 
@@ -355,10 +402,22 @@ pip install -r requirements.txt pytest httpx
 pytest                     # 116 tests, no API key or network needed
 ```
 
-The whole conversation loop is tested against a scripted fake API client
-(`tests/fake_client.py`): tool execution, parallel tool calls, tool errors,
-the tool budget, `pause_turn` resumption, refusals, API errors, history
-trimming and the prompt-cache shape of the request.
+The whole conversation loop is tested twice over, once per provider, with no
+API key and no network:
+
+- `tests/fake_client.py` scripts the Anthropic SDK, so the Claude path is
+  exercised end to end (tool execution, parallel calls, tool errors, the tool
+  budget, `pause_turn` resumption, refusals, API errors, the prompt-cache shape
+  of the request, and the model-gated-parameter retry).
+- `tests/gemini_stub.py` is an httpx transport that speaks the documented
+  Gemini SSE wire format, so the Gemini path is checked against real request
+  and response shapes: schema sanitisation, function-call accumulation,
+  `functionResponse` ordering, `finishReason` mapping, blocked prompts,
+  grounding fallback and every documented error status.
+
+Running the same loop over both dialects is what keeps the provider seam
+honest. What the stubs cannot check is whether the live APIs accept the
+requests: `scripts/check_provider.py` does that in one call.
 
 ```
 citychat/
@@ -371,8 +430,12 @@ citychat/
   knowledge.py   always-on core docs + BM25 over the paper corpus
   context.py     binds the above into one object
   prompt.py      system prompt assembly (must stay byte-stable)
-  tools.py       tool schemas and dispatch
-  agent.py       the streaming conversation loop
+  tools.py       provider-neutral tool schemas and dispatch
+  agent.py       the streaming conversation loop, provider-neutral
+  providers/
+    base.py      the Provider interface and the neutral turn/tool types
+    gemini.py    Gemini, over the Generative Language REST API
+    anthropic.py Claude, over the Anthropic SDK
   server.py      FastAPI endpoints
   cli.py         terminal chat
 ```

@@ -13,13 +13,13 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import __version__
-from .agent import CityAgent
+from .agent import CityAgent, HistoryProviderMismatch
 from .config import Settings
 from .context import CityContext
 from .sessions import SessionStore
@@ -52,7 +52,17 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     history: list[dict] | None = Field(
         default=None,
-        description="Prior messages in Claude format. Send back what the last response returned.",
+        description=(
+            "Prior messages in the active provider's own format. Send back what the last "
+            "response returned."
+        ),
+    )
+    provider: str | None = Field(
+        default=None,
+        description=(
+            "Which provider produced `history`. Echo back the `provider` field from the last "
+            "response; a mismatch is rejected rather than sent as a malformed request."
+        ),
     )
     session_id: str | None = Field(
         default=None,
@@ -63,6 +73,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     city: str
+    provider: str
+    model: str
     session_id: str | None = None
     history: list[dict] | None = None
     tool_calls: list[dict] = []
@@ -71,11 +83,26 @@ class ChatResponse(BaseModel):
     error: str | None = None
 
 
-def _resolve_history(request: ChatRequest) -> tuple[list[dict], str | None]:
+def _resolve_history(request: ChatRequest) -> tuple[list[dict], str | None, str | None]:
+    """(history, history_provider, session_id)."""
     if request.session_id:
         session_id = sessions.new_id() if request.session_id == "new" else request.session_id
-        return list(sessions.get(session_id)), session_id
-    return list(request.history or []), None
+        state = sessions.get(session_id)
+        return list(state.messages), state.provider or None, session_id
+    return list(request.history or []), request.provider, None
+
+
+def _prepare(request: ChatRequest) -> tuple[list[dict], str | None]:
+    history, history_provider, session_id = _resolve_history(request)
+    try:
+        messages = agent.prepare_messages(history, request.message, history_provider)
+    except HistoryProviderMismatch as exc:
+        # A stale transcript from another provider: say so with a 409 so the
+        # client knows to start over rather than silently losing context.
+        if session_id:
+            sessions.clear(session_id)
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return messages, session_id
 
 
 @app.get("/health")
@@ -84,12 +111,10 @@ def health() -> dict:
         "status": "ok",
         "version": __version__,
         "city": context.store.name,
-        "model": settings.model,
-        "effort": settings.effort,
-        # The SDK also resolves an `ant auth login` profile, so an empty
-        # ANTHROPIC_API_KEY does not necessarily mean no credentials.
-        "api_key_from_environment": bool(settings.api_key),
-        "tools": [t.get("name") for t in agent.tools],
+        **agent.describe(),
+        # For Claude the SDK also resolves an `ant auth login` profile, so an
+        # empty key here does not necessarily mean no credentials.
+        "api_key_from_environment": bool(settings.api_key_for_provider),
         "active_sessions": len(sessions),
     }
 
@@ -97,7 +122,10 @@ def health() -> dict:
 @app.get("/api/city")
 def city() -> dict:
     """What this deployment holds, plus the city-level indicators."""
-    return {"dataset": context.data_summary(), "indicators": context.store.overview()}
+    return {
+        "dataset": {**context.data_summary(), "model": agent.provider.model},
+        "indicators": context.store.overview(),
+    }
 
 
 @app.get("/api/places")
@@ -115,13 +143,15 @@ def places(query: str | None = None, kind: str | None = None) -> dict:
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    history, session_id = _resolve_history(request)
-    turn = agent.ask(agent.prepare_messages(history, request.message))
+    messages, session_id = _prepare(request)
+    turn = agent.ask(messages)
     if session_id:
-        sessions.set(session_id, turn.messages)
+        sessions.set(session_id, agent.provider_name, turn.messages)
     return ChatResponse(
         reply=turn.text,
         city=context.store.name,
+        provider=agent.provider_name,
+        model=agent.provider.model,
         session_id=session_id,
         history=None if session_id else turn.messages,
         tool_calls=turn.tool_calls,
@@ -134,21 +164,29 @@ def chat(request: ChatRequest) -> ChatResponse:
 @app.post("/api/chat/stream")
 def chat_stream(request: ChatRequest) -> StreamingResponse:
     """Server-sent events: `text` deltas, tool progress, then `done`."""
-    history, session_id = _resolve_history(request)
-    messages = agent.prepare_messages(history, request.message)
+    messages, session_id = _prepare(request)
 
     def emit():
-        yield _sse({"type": "start", "city": context.store.name, "session_id": session_id})
+        yield _sse(
+            {
+                "type": "start",
+                "city": context.store.name,
+                "provider": agent.provider_name,
+                "model": agent.provider.model,
+                "session_id": session_id,
+            }
+        )
         for event in agent.run(messages):
             if event["type"] == "done":
                 if session_id:
-                    sessions.set(session_id, event["messages"])
+                    sessions.set(session_id, agent.provider_name, event["messages"])
                 payload = {
                     "type": "done",
                     "text": event["text"],
                     "tool_calls": event["tool_calls"],
                     "usage": event["usage"],
                     "stop_reason": event["stop_reason"],
+                    "provider": agent.provider_name,
                     "session_id": session_id,
                     "error": event.get("error"),
                 }

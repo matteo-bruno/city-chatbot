@@ -1,8 +1,9 @@
 """Configuration, entirely from environment variables.
 
 Keeping every knob in the environment (and nothing in code) is what makes the
-service portable: the same image runs a different city, a different model or a
-different geocoder with no edits. `.env.example` documents the full set.
+service portable: the same image runs a different city, a different provider,
+a different model or a different geocoder with no edits. `.env.example`
+documents the full set.
 """
 
 from __future__ import annotations
@@ -11,11 +12,20 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_PROVIDER = "gemini"
 
 
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
+
+
+def _env_any(names: tuple[str, ...], default: str = "") -> str:
+    """First of several env vars that is set, for provider key aliases."""
+    for name in names:
+        value = _env(name)
+        if value:
+            return value
+    return default
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -33,14 +43,42 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_opt_int(name: str) -> int | None:
+    raw = _env(name)
+    try:
+        return int(raw) if raw else None
+    except ValueError:
+        return None
+
+
+def _env_opt_float(name: str) -> float | None:
+    raw = _env(name)
+    try:
+        return float(raw) if raw else None
+    except ValueError:
+        return None
+
+
 @dataclass
 class Settings:
-    # --- model ---------------------------------------------------------------
-    api_key: str = ""
-    model: str = DEFAULT_MODEL
-    effort: str = "medium"  # low | medium | high | xhigh | max
+    # --- provider and model -------------------------------------------------
+    provider: str = DEFAULT_PROVIDER
+    #: empty means "the provider's own default model"
+    model: str = ""
     max_tokens: int = 4096
     max_tool_rounds: int = 8
+
+    # --- provider credentials -----------------------------------------------
+    gemini_api_key: str = ""
+    gemini_base_url: str = "https://generativelanguage.googleapis.com"
+    anthropic_api_key: str = ""
+
+    # --- Gemini-specific ----------------------------------------------------
+    temperature: float | None = None
+    thinking_budget: int | None = None
+
+    # --- Anthropic-specific -------------------------------------------------
+    effort: str = "medium"  # low | medium | high | xhigh | max
     refusal_fallback: bool = True
 
     # --- data ----------------------------------------------------------------
@@ -69,11 +107,18 @@ class Settings:
         domains = [d.strip() for d in _env("CITYCHAT_WEB_SEARCH_DOMAINS").split(",") if d.strip()]
         origins = [o.strip() for o in _env("CITYCHAT_ALLOW_ORIGINS", "*").split(",") if o.strip()]
         return cls(
-            api_key=_env("ANTHROPIC_API_KEY"),
-            model=_env("CITYCHAT_MODEL", DEFAULT_MODEL),
-            effort=_env("CITYCHAT_EFFORT", "medium"),
+            provider=_env("CITYCHAT_PROVIDER", DEFAULT_PROVIDER).lower(),
+            model=_env("CITYCHAT_MODEL"),
             max_tokens=_env_int("CITYCHAT_MAX_TOKENS", 4096),
             max_tool_rounds=_env_int("CITYCHAT_MAX_TOOL_ROUNDS", 8),
+            gemini_api_key=_env_any(("GEMINI_API_KEY", "GOOGLE_API_KEY")),
+            gemini_base_url=_env(
+                "CITYCHAT_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"
+            ),
+            anthropic_api_key=_env("ANTHROPIC_API_KEY"),
+            temperature=_env_opt_float("CITYCHAT_TEMPERATURE"),
+            thinking_budget=_env_opt_int("CITYCHAT_THINKING_BUDGET"),
+            effort=_env("CITYCHAT_EFFORT", "medium"),
             refusal_fallback=_env_bool("CITYCHAT_REFUSAL_FALLBACK", True),
             data_dir=Path(_env("CITYCHAT_DATA_DIR", "data")),
             knowledge_dir=Path(_env("CITYCHAT_KNOWLEDGE_DIR", "knowledge")),
@@ -101,3 +146,10 @@ class Settings:
     @property
     def cache_dir(self) -> Path:
         return self.data_dir / "cache"
+
+    @property
+    def api_key_for_provider(self) -> str:
+        return {
+            "gemini": self.gemini_api_key,
+            "anthropic": self.anthropic_api_key,
+        }.get(self.provider, "")

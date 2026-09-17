@@ -16,7 +16,7 @@ from .config import Settings
 from .context import CityContext
 
 BANNER = """
-{city} accessibility assistant - model {model}
+{city} accessibility assistant - {provider} / {model}
 Ask about proximity times, neighbourhoods, or the 15-minute-city methodology.
 Commands: /reset  /city  /places [query]  /quit
 """.strip()
@@ -62,26 +62,34 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env()
     try:
         context = CityContext(settings)
+        agent = CityAgent(context)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    agent = CityAgent(context)
 
     if args.check:
         print(json.dumps(context.data_summary(), indent=2, default=str))
-        print(
-            f"\nsystem prompt: {len(agent.system_prompt)} chars, tools: {[t.get('name') for t in agent.tools]}"
-        )
-        print(
-            f"model: {settings.model}, effort: {settings.effort}, max_tokens: {settings.max_tokens}"
-        )
+        print(json.dumps({"assistant": agent.describe()}, indent=2, default=str))
+        print(f"system prompt: {len(agent.system_prompt)} chars")
+        print(f"max_tokens: {settings.max_tokens}, tool rounds: {settings.max_tool_rounds}")
+        if not settings.api_key_for_provider:
+            print(
+                f"warning: no API key found for provider {settings.provider!r}",
+                file=sys.stderr,
+            )
         return 0
 
     if args.question:
         _run_turn(agent, [], " ".join(args.question), args.verbose)
         return 0
 
-    print(BANNER.format(city=context.store.name, model=settings.model))
+    print(
+        BANNER.format(
+            city=context.store.name,
+            provider=agent.provider_name,
+            model=agent.provider.model,
+        )
+    )
     history: list[dict] = []
     while True:
         try:

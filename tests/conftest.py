@@ -20,8 +20,11 @@ def pytest_report_header(config):
 
 @pytest.fixture(scope="session")
 def settings() -> Settings:
+    """Anthropic settings, since most tests drive the Claude path directly."""
     return Settings(
-        api_key="test-key",
+        provider="anthropic",
+        anthropic_api_key="test-key",
+        gemini_api_key="test-key",
         data_dir=ROOT / "data",
         knowledge_dir=ROOT / "knowledge",
         city="milan",

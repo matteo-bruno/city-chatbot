@@ -17,6 +17,7 @@ def server(tmp_path_factory):
     """Import the app with this repo's data, then swap in the fake API client."""
     os.environ.update(
         {
+            "CITYCHAT_PROVIDER": "anthropic",
             "ANTHROPIC_API_KEY": "test-key",
             "CITYCHAT_CITY": "milan",
             "CITYCHAT_DATA_DIR": "data",
@@ -34,14 +35,18 @@ def client(server):
 
 
 def script(server, turns):
-    server.agent._client = FakeClient(turns)
-    return server.agent._client
+    """Point the live app's provider at a scripted fake API client."""
+    client = FakeClient(turns)
+    server.agent.provider._client = client
+    return client
 
 
 def test_health(client):
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["city"] == "Milan"
+    assert body["provider"] == "anthropic"
+    assert body["model"] == "claude-opus-5"
     assert "area_accessibility" in body["tools"]
 
 
@@ -71,6 +76,9 @@ def test_chat_returns_reply_and_history(client, server):
     assert [m["role"] for m in body["history"]] == ["user", "assistant"]
     assert body["session_id"] is None
     assert body["error"] is None
+    # The client needs the provider tag to send this history back safely.
+    assert body["provider"] == "anthropic"
+    assert body["model"] == "claude-opus-5"
 
 
 def test_chat_runs_tools_and_reports_them(client, server):

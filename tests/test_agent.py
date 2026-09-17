@@ -7,8 +7,8 @@ import json
 import pytest
 from fake_client import FakeClient, ScriptedTurn, text, thinking, tool_use
 
-from citychat.agent import CityAgent, trim_history
-from citychat.tools import tool_definitions
+from citychat.agent import CityAgent, HistoryProviderMismatch, trim_history
+from citychat.tools import tool_specs
 
 
 def agent_with(context, script, **kwargs) -> CityAgent:
@@ -202,13 +202,15 @@ def test_the_request_is_shaped_for_prompt_caching(context):
     agent.ask(agent.prepare_messages([], "hi"))
 
     request = client.requests[0]
-    assert request["model"] == context.settings.model
+    assert request["model"] == agent.provider.model
     assert request["output_config"] == {"effort": context.settings.effort}
     system = request["system"]
     assert len(system) == 1
     assert system[0]["cache_control"] == {"type": "ephemeral"}
     assert "City briefing" in system[0]["text"]
-    assert [t["name"] for t in request["tools"]] == [d["name"] for d in tool_definitions(context)]
+    assert [t["name"] for t in request["tools"]] == [s.name for s in tool_specs(context)]
+    # Anthropic wants the JSON Schema verbatim, `additionalProperties` included.
+    assert request["tools"][0]["input_schema"]["additionalProperties"] is False
 
 
 def test_the_system_prompt_is_identical_between_turns(context):
@@ -251,12 +253,17 @@ def test_multi_turn_history_is_carried_forward(context):
 # --------------------------------------------------------------- history trim
 
 
-def test_trim_history_keeps_everything_when_short():
+@pytest.fixture(scope="module")
+def anthropic_provider(context):
+    return CityAgent(context, client=FakeClient([])).provider
+
+
+def test_trim_history_keeps_everything_when_short(anthropic_provider):
     history = [{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}]
-    assert trim_history(history, 10) == history
+    assert trim_history(history, 10, anthropic_provider) == history
 
 
-def test_trim_history_never_starts_on_an_orphaned_tool_result():
+def test_trim_history_never_starts_on_an_orphaned_tool_result(anthropic_provider):
     history = [
         {"role": "user", "content": "q"},
         {
@@ -266,25 +273,25 @@ def test_trim_history_never_starts_on_an_orphaned_tool_result():
         {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "x", "content": "{}"}]},
         {"role": "assistant", "content": "answer"},
     ]
-    trimmed = trim_history(history, 2)
+    trimmed = trim_history(history, 2, anthropic_provider)
     # The window would have started on the tool result, which the API rejects.
     assert trimmed == []
 
 
-def test_trim_history_keeps_a_valid_window():
+def test_trim_history_keeps_a_valid_window(anthropic_provider):
     history = [
         {"role": "user", "content": "old"},
         {"role": "assistant", "content": "old answer"},
         {"role": "user", "content": "new"},
         {"role": "assistant", "content": "new answer"},
     ]
-    assert trim_history(history, 2) == history[-2:][:0] + [history[2], history[3]]
+    assert trim_history(history, 2, anthropic_provider) == [history[2], history[3]]
 
 
 @pytest.mark.parametrize("limit", [0, -1])
-def test_trim_history_with_no_limit_keeps_all(limit):
+def test_trim_history_with_no_limit_keeps_all(limit, anthropic_provider):
     history = [{"role": "user", "content": "a"}] * 5
-    assert len(trim_history(history, limit)) == 5
+    assert len(trim_history(history, limit, anthropic_provider)) == 5
 
 
 # ------------------------------------------------- model-gated request params
@@ -328,7 +335,7 @@ def test_a_model_rejecting_effort_is_retried_without_it(context):
     assert "output_config" in client.requests[0]
     assert "output_config" not in client.requests[1]
     # And it stays off for the rest of the process, so the cache prefix settles.
-    assert agent._send_effort is False
+    assert agent.provider._send_effort is False
 
 
 def test_a_model_rejecting_the_fallback_beta_is_retried_without_it(context):
@@ -343,7 +350,7 @@ def test_a_model_rejecting_the_fallback_beta_is_retried_without_it(context):
     assert "fallbacks" in client.requests[0]
     assert "fallbacks" not in client.requests[1]
     assert "betas" not in client.requests[1]
-    assert agent._send_fallbacks is False
+    assert agent.provider._send_fallbacks is False
 
 
 def test_an_unrelated_bad_request_is_surfaced_and_not_retried(context):
@@ -362,6 +369,73 @@ def test_an_unrelated_bad_request_is_surfaced_and_not_retried(context):
 
 def test_each_parameter_is_only_dropped_once(context):
     """A second rejection of an already-dropped field must not loop forever."""
+    provider = CityAgent(context, client=FakeClient([])).provider
+    assert provider._drop_unsupported_parameter(bad_request("bad effort")) is not None
+    assert provider._drop_unsupported_parameter(bad_request("bad effort")) is None
+
+
+# ------------------------------------------------------------- provider seam
+
+
+def test_an_empty_model_setting_uses_the_provider_default(context):
+    from citychat.providers import ANTHROPIC_DEFAULT_MODEL
+
+    assert context.settings.model == ""
     agent = CityAgent(context, client=FakeClient([]))
-    assert agent._drop_unsupported_parameter(bad_request("bad effort")) is not None
-    assert agent._drop_unsupported_parameter(bad_request("bad effort")) is None
+    assert agent.provider.model == ANTHROPIC_DEFAULT_MODEL
+    assert agent.provider_name == "anthropic"
+
+
+def test_an_explicit_model_wins(context):
+    from dataclasses import replace
+
+    from citychat.context import CityContext
+
+    pinned = CityContext(replace(context.settings, model="claude-sonnet-5"))
+    agent = CityAgent(pinned, client=FakeClient([]))
+    assert agent.provider.model == "claude-sonnet-5"
+
+
+def test_an_unknown_provider_is_rejected_with_the_options(context):
+    from dataclasses import replace
+
+    from citychat.context import CityContext
+
+    broken = CityContext(replace(context.settings, provider="llamafile"))
+    with pytest.raises(RuntimeError, match="unknown CITYCHAT_PROVIDER"):
+        CityAgent(broken)
+
+
+def test_describe_reports_the_active_provider(context):
+    described = CityAgent(context, client=FakeClient([])).describe()
+    assert described["provider"] == "anthropic"
+    assert described["api"] == "the Claude API"
+    assert "area_accessibility" in described["tools"]
+
+
+def test_a_history_from_another_provider_is_refused(context):
+    """Content blocks and Gemini parts are not interchangeable."""
+    agent = CityAgent(context, client=FakeClient([]))
+    history = [{"role": "user", "parts": [{"text": "hi"}]}]
+    with pytest.raises(HistoryProviderMismatch) as excinfo:
+        agent.prepare_messages(history, "next", history_provider="gemini")
+    assert excinfo.value.expected == "anthropic"
+    assert excinfo.value.found == "gemini"
+
+
+def test_a_matching_history_provider_is_accepted(context):
+    agent = CityAgent(context, client=FakeClient([]))
+    history = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "there"}]
+    messages = agent.prepare_messages(history, "next", history_provider="anthropic")
+    assert len(messages) == 3
+
+
+def test_an_empty_history_needs_no_provider_tag(context):
+    agent = CityAgent(context, client=FakeClient([]))
+    assert agent.prepare_messages([], "hi", history_provider="gemini")
+
+
+def test_the_done_event_names_the_provider(context):
+    agent = CityAgent(context, client=FakeClient([ScriptedTurn([text("ok")])]))
+    events = list(agent.run(agent.prepare_messages([], "hi")))
+    assert events[-1]["provider"] == "anthropic"

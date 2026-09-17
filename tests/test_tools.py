@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from citychat.tools import run_tool, tool_definitions
+from citychat.tools import run_tool, tool_specs
 
 
 def call(context, name: str, args: dict) -> tuple[dict, bool]:
@@ -14,10 +14,9 @@ def call(context, name: str, args: dict) -> tuple[dict, bool]:
     return json.loads(payload), is_error
 
 
-def test_tool_definitions_are_well_formed_and_stable(context):
-    definitions = tool_definitions(context)
-    names = [d["name"] for d in definitions]
-    assert names == [
+def test_tool_specs_are_well_formed_and_stable(context):
+    specs = tool_specs(context)
+    assert [spec.name for spec in specs] == [
         "city_overview",
         "area_accessibility",
         "compare_areas",
@@ -25,27 +24,28 @@ def test_tool_definitions_are_well_formed_and_stable(context):
         "list_known_places",
         "search_methodology",
     ]
-    for definition in definitions:
-        assert definition["description"]
-        schema = definition["input_schema"]
+    for spec in specs:
+        assert spec.description
+        schema = spec.json_schema()
         assert schema["type"] == "object"
+        assert schema["properties"]
         assert schema["additionalProperties"] is False
-    # Definitions sit in front of the cache breakpoint, so they must be stable.
-    assert tool_definitions(context) == definitions
+    # Specs sit in front of every provider's cache prefix, so they must be stable.
+    assert tool_specs(context) == specs
 
 
-def test_web_search_is_only_offered_when_enabled(context, settings):
-    assert all(d.get("type") != "web_search_20260209" for d in tool_definitions(context))
+def test_required_arguments_are_declared_on_the_spec(context):
+    by_name = {spec.name: spec for spec in tool_specs(context)}
+    assert by_name["search_methodology"].required == ("query",)
+    assert by_name["compare_areas"].required == ("places",)
+    assert by_name["city_overview"].required == ()
+    # `required` must land back in the rendered schema, not just on the spec.
+    assert by_name["search_methodology"].json_schema()["required"] == ["query"]
 
-    from dataclasses import replace
 
-    from citychat.context import CityContext
-
-    enabled = CityContext(replace(settings, web_search=True))
-    web = [d for d in tool_definitions(enabled) if d.get("name") == "web_search"]
-    assert len(web) == 1
-    assert web[0]["type"] == "web_search_20260209"
-    assert web[0]["max_uses"] == enabled.settings.web_search_max_uses
+def test_web_search_is_not_a_client_tool(context):
+    """Every provider runs search server-side, so it never appears as a spec."""
+    assert all(spec.name != "web_search" for spec in tool_specs(context))
 
 
 def test_city_overview_returns_both_modes_by_default(context):

@@ -152,6 +152,7 @@ class CityContext:
             "categories": list(self.store.categories),
             "named_places": len(self.gazetteer),
             "place_sources": self.gazetteer.sources,
+            "provider": self.settings.provider,
             "geocoder": self.settings.geocoder,
             "web_search": self.settings.web_search,
             "knowledge_documents": self.knowledge.documents(),
