@@ -20,8 +20,13 @@ and cycling proximity times overall and for nine service categories.
 
 ## Quick start
 
+**Python 3.10 or newer is required** — the Anthropic SDK itself does not
+install on 3.9, and 3.9 reached end of life in October 2025. Check with
+`python3 --version`; if it is older, see [Upgrading Python](#upgrading-python)
+below. Tested on 3.10, 3.12 and 3.13.
+
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env        # then put your key in ANTHROPIC_API_KEY
@@ -40,6 +45,35 @@ pip install -r requirements-prep.txt
 python scripts/prepare_city.py data/raw/milan.geojson.gz --slug milan --name Milan \
     --country Italy --data-vintage "OpenStreetMap May 2023, WorldPop 2020"
 ```
+
+## Upgrading Python
+
+You do not need to touch your system Python: install a newer one alongside it
+and point the project's virtualenv at that.
+
+The least invasive route, on any OS, is [uv](https://docs.astral.sh/uv/):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh     # Windows: see the uv docs
+uv python install 3.12
+uv venv --python 3.12
+uv pip install -r requirements.txt
+source .venv/bin/activate
+```
+
+Or with your platform's package manager:
+
+| Platform | Command |
+|---|---|
+| macOS (Homebrew) | `brew install python@3.12`, then `python3.12 -m venv .venv` |
+| Ubuntu 22.04+ / Debian | `sudo apt install python3.12 python3.12-venv`, then `python3.12 -m venv .venv` |
+| Older Ubuntu | add the deadsnakes PPA first: `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update` |
+| Windows | `winget install Python.Python.3.12`, then `py -3.12 -m venv .venv` |
+| Any (pyenv) | `pyenv install 3.12 && pyenv local 3.12`, then `python -m venv .venv` |
+
+Then continue from `pip install -r requirements.txt` in the quick start. Verify
+with `python --version` **after** activating the virtualenv — that is the
+interpreter the project actually uses.
 
 ## How it works
 
