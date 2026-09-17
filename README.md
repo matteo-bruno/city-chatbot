@@ -227,6 +227,52 @@ and a final `done` carrying the full text, the updated history and token usage.
 - **Never expose the Claude key to the browser.** All calls go through this
   backend, which is the other reason the HTTP layer exists.
 
+## Changing the model
+
+One environment variable:
+
+```bash
+CITYCHAT_MODEL=claude-sonnet-5 python -m citychat.cli
+# or put it in .env, or pass it to uvicorn:
+CITYCHAT_MODEL=claude-sonnet-5 uvicorn citychat.server:app
+```
+
+Model ids are complete as written below — never append a date suffix.
+
+| `CITYCHAT_MODEL` | $ / MTok in-out | Notes for this workload |
+|---|---|---|
+| `claude-opus-5` *(default)* | 5 / 25 | Best judgement on the interpretive part: caveats, comparisons, when to say "close but no". |
+| `claude-sonnet-5` | 2 / 10 | The sensible cost saving. The tools do the reasoning-heavy work, so quality holds up well here. |
+| `claude-haiku-4-5` | 1 / 5 | Cheapest. 200K context. Fine for lookup questions, weaker at the methodology discussion. |
+| `claude-opus-4-8` | 5 / 25 | Previous Opus generation, if you have a reason to pin it. |
+| `claude-fable-5-1` | 10 / 50 | Anthropic's most capable model; overkill for this, and priced accordingly. |
+
+Two request parameters are model-gated, and the agent handles both for you —
+it drops the parameter and retries the same turn the first time the API
+rejects it, logs a warning naming the variable to set, and leaves it off for
+the rest of the process. So a model swap needs nothing else. To set them
+explicitly and skip the warning:
+
+- **`CITYCHAT_EFFORT`** — `low`/`medium`/`high`/`xhigh`/`max` on Opus 5,
+  Sonnet 5 and Opus 4.6+. Haiku 4.5 does not accept it at all. Set
+  `CITYCHAT_EFFORT=` (empty) to omit it and use the model's own default.
+  `low` is noticeably faster and is enough for plain lookups; `high` is worth
+  it if you want more careful hedging on borderline verdicts.
+- **`CITYCHAT_REFUSAL_FALLBACK`** — only meaningful on models that can return
+  `stop_reason: "refusal"` (Opus 5, Fable 5.x). Set `0` for anything else, and
+  for gateways that reject beta flags.
+
+```bash
+CITYCHAT_MODEL=claude-haiku-4-5 CITYCHAT_EFFORT= CITYCHAT_REFUSAL_FALLBACK=0 \
+    python -m citychat.cli -v "Is Rogoredo a 15-minute neighbourhood?"
+```
+
+`-v` prints the tool calls and the token usage per turn, which is how you
+check the prompt cache is working: `cache_read_input_tokens` should be around
+4,000 from the second turn onwards, with `input_tokens` in the low hundreds.
+Prompt caches are per-model, so the first turn after a model switch pays one
+cold cache write and the rest come from cache again.
+
 ## Configuration
 
 Everything is environment variables; `.env.example` documents the full set.

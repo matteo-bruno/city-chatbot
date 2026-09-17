@@ -285,3 +285,83 @@ def test_trim_history_keeps_a_valid_window():
 def test_trim_history_with_no_limit_keeps_all(limit):
     history = [{"role": "user", "content": "a"}] * 5
     assert len(trim_history(history, limit)) == 5
+
+
+# ------------------------------------------------- model-gated request params
+
+
+def bad_request(message: str):
+    """A real BadRequestError, as the SDK would raise it for a rejected field."""
+    import anthropic
+    import httpx2
+
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx2.Response(400, request=request, json={"error": {"message": message}})
+    return anthropic.BadRequestError(message, response=response, body=None)
+
+
+def test_effort_is_omitted_when_unset(context):
+    """`CITYCHAT_EFFORT=` means "use the model's own default"."""
+    from dataclasses import replace
+
+    from citychat.context import CityContext
+
+    no_effort = CityContext(replace(context.settings, effort=""))
+    client = FakeClient([ScriptedTurn([text("ok")])])
+    agent = CityAgent(no_effort, client=client)
+    agent.ask(agent.prepare_messages([], "hi"))
+    assert "output_config" not in client.requests[0]
+
+
+def test_a_model_rejecting_effort_is_retried_without_it(context):
+    """Haiku 4.5 does not accept output_config.effort; the turn must still answer."""
+    client = FakeClient(
+        [ScriptedTurn([text("answered anyway")])],
+        raise_on_call=bad_request("output_config.effort: unsupported parameter for this model"),
+    )
+    agent = CityAgent(context, client=client)
+    turn = agent.ask(agent.prepare_messages([], "hi"))
+
+    assert turn.text == "answered anyway"
+    assert turn.error is None
+    assert len(client.requests) == 2
+    assert "output_config" in client.requests[0]
+    assert "output_config" not in client.requests[1]
+    # And it stays off for the rest of the process, so the cache prefix settles.
+    assert agent._send_effort is False
+
+
+def test_a_model_rejecting_the_fallback_beta_is_retried_without_it(context):
+    client = FakeClient(
+        [ScriptedTurn([text("answered anyway")])],
+        raise_on_call=bad_request("fallbacks: not available for model claude-sonnet-5"),
+    )
+    agent = CityAgent(context, client=client)
+    turn = agent.ask(agent.prepare_messages([], "hi"))
+
+    assert turn.text == "answered anyway"
+    assert "fallbacks" in client.requests[0]
+    assert "fallbacks" not in client.requests[1]
+    assert "betas" not in client.requests[1]
+    assert agent._send_fallbacks is False
+
+
+def test_an_unrelated_bad_request_is_surfaced_and_not_retried(context):
+    client = FakeClient(
+        [ScriptedTurn([text("never reached")])],
+        raise_on_call=bad_request("messages.0: content must not be empty"),
+    )
+    agent = CityAgent(context, client=client)
+    events = list(agent.run(agent.prepare_messages([], "hi")))
+
+    assert events[0]["type"] == "error"
+    assert "content must not be empty" in events[0]["message"]
+    assert events[-1]["stop_reason"] == "error"
+    assert len(client.requests) == 1  # no retry loop
+
+
+def test_each_parameter_is_only_dropped_once(context):
+    """A second rejection of an already-dropped field must not loop forever."""
+    agent = CityAgent(context, client=FakeClient([]))
+    assert agent._drop_unsupported_parameter(bad_request("bad effort")) is not None
+    assert agent._drop_unsupported_parameter(bad_request("bad effort")) is None

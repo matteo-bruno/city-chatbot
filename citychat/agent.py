@@ -75,6 +75,14 @@ class CityAgent:
         self.system_prompt = build_system_prompt(context)
         self.tools = tool_definitions(context)
         self._client = client
+        # Two request parameters are model-gated: `output_config.effort` is not
+        # accepted by every model (Haiku 4.5, Sonnet 4.5), and server-side
+        # refusal `fallbacks` is a beta that only some models and gateways
+        # take. Rather than keep a model table in here that goes stale, each is
+        # switched off for the process the first time the API rejects it, so
+        # changing CITYCHAT_MODEL alone is enough to move to another model.
+        self._send_effort = bool(self.settings.effort)
+        self._send_fallbacks = bool(self.settings.refusal_fallback)
 
     # ---------------------------------------------------------------- plumbing
 
@@ -103,18 +111,38 @@ class CityAgent:
             ],
             "tools": self.tools,
             "messages": messages,
-            "output_config": {"effort": self.settings.effort},
         }
-        if self.settings.refusal_fallback:
+        if self._send_effort:
+            kwargs["output_config"] = {"effort": self.settings.effort}
+        if self._send_fallbacks:
             kwargs["betas"] = [REFUSAL_FALLBACK_BETA]
             kwargs["fallbacks"] = "default"
         return kwargs
 
     def _stream(self, messages: list[dict]):
         kwargs = self._request_kwargs(messages)
-        if self.settings.refusal_fallback:
+        if self._send_fallbacks:
             return self.client.beta.messages.stream(**kwargs)
         return self.client.messages.stream(**kwargs)
+
+    def _drop_unsupported_parameter(self, exc: Exception) -> str | None:
+        """On a 400 naming a model-gated parameter, stop sending it.
+
+        Returns what was dropped so the caller can retry the same request, or
+        None when the error is something the retry cannot fix.
+        """
+        import anthropic
+
+        if not isinstance(exc, anthropic.BadRequestError):
+            return None
+        detail = str(getattr(exc, "message", "") or exc).lower()
+        if self._send_effort and ("effort" in detail or "output_config" in detail):
+            self._send_effort = False
+            return "output_config.effort (set CITYCHAT_EFFORT= to silence this)"
+        if self._send_fallbacks and ("fallback" in detail or REFUSAL_FALLBACK_BETA in detail):
+            self._send_fallbacks = False
+            return "fallbacks (set CITYCHAT_REFUSAL_FALLBACK=0 to silence this)"
+        return None
 
     # ------------------------------------------------------------------ public
 
@@ -138,30 +166,41 @@ class CityAgent:
         # +2: one extra round to tell the model its tool budget is spent, and
         # one more for it to answer with what it has.
         for round_index in range(self.settings.max_tool_rounds + 2):
-            try:
-                with self._stream(messages) as stream:
-                    for event in stream:
-                        if (
-                            event.type == "content_block_delta"
-                            and getattr(event.delta, "type", None) == "text_delta"
-                        ):
-                            answer_parts.append(event.delta.text)
-                            yield {"type": "text", "text": event.delta.text}
-                    message = stream.get_final_message()
-            except Exception as exc:  # network, auth, rate limit, bad request
-                logger.exception("model request failed")
-                detail = _describe_api_error(exc)
-                yield {"type": "error", "message": detail}
-                yield {
-                    "type": "done",
-                    "text": "".join(answer_parts),
-                    "messages": messages,
-                    "tool_calls": tool_calls,
-                    "stop_reason": "error",
-                    "usage": usage,
-                    "error": detail,
-                }
-                return
+            message = None
+            while message is None:
+                try:
+                    with self._stream(messages) as stream:
+                        for event in stream:
+                            if (
+                                event.type == "content_block_delta"
+                                and getattr(event.delta, "type", None) == "text_delta"
+                            ):
+                                answer_parts.append(event.delta.text)
+                                yield {"type": "text", "text": event.delta.text}
+                        message = stream.get_final_message()
+                except Exception as exc:  # network, auth, rate limit, bad request
+                    # A model that does not accept one of the optional
+                    # parameters rejects the request before streaming anything,
+                    # so retrying without it is safe and loses no output.
+                    dropped = self._drop_unsupported_parameter(exc)
+                    if dropped:
+                        logger.warning(
+                            "%s rejected %s; retrying without it", self.settings.model, dropped
+                        )
+                        continue
+                    logger.exception("model request failed")
+                    detail = _describe_api_error(exc)
+                    yield {"type": "error", "message": detail}
+                    yield {
+                        "type": "done",
+                        "text": "".join(answer_parts),
+                        "messages": messages,
+                        "tool_calls": tool_calls,
+                        "stop_reason": "error",
+                        "usage": usage,
+                        "error": detail,
+                    }
+                    return
 
             usage = _merge_usage(usage, getattr(message, "usage", None))
             messages.append({"role": "assistant", "content": _blocks_to_params(message)})
