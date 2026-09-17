@@ -1,0 +1,123 @@
+{
+  "aggregate_definition": {
+    "bicycle": {
+      "cells_checked": 7498,
+      "max_abs_difference_min": 0.067,
+      "share_matching_category_mean": 0.9904,
+      "tolerance_min": 0.06
+    },
+    "foot": {
+      "cells_checked": 7498,
+      "max_abs_difference_min": 0.067,
+      "share_matching_category_mean": 0.9896,
+      "tolerance_min": 0.06
+    }
+  },
+  "bbox": [
+    8.979588,
+    45.357725,
+    9.42767,
+    45.755379
+  ],
+  "category_labels": {
+    "culture": "cultural activities (museums, cinemas, theatres, venues)",
+    "education": "learning (schools, kindergartens, universities, libraries)",
+    "healthcare": "health care (doctors, clinics, hospitals, pharmacies)",
+    "outdoor": "outdoor activities (parks, squares, playgrounds)",
+    "physical": "physical exercise (gyms, sport facilities, pools)",
+    "restaurant": "eating (restaurants, bars, cafes)",
+    "services": "services (post, bank, pharmacy, public offices)",
+    "supplies": "supplies (groceries, markets, everyday shops)",
+    "transport": "moving (public transport stops and stations)"
+  },
+  "cell_count": 7637,
+  "cells_with_scores": {
+    "bicycle": 7498,
+    "foot": 7498
+  },
+  "country": "Italy",
+  "covered_area_km2": 793.52,
+  "data_source": "Accessibility scores computed with the framework of Bruno et al., Nature Cities (2024); OpenStreetMap POIs, WorldPop population, OSRM routing.",
+  "data_vintage": "OpenStreetMap May 2023, WorldPop 2020",
+  "mean_cell_area_km2": 0.1039,
+  "mode_labels": {
+    "bicycle": "cycling",
+    "foot": "walking"
+  },
+  "name": "Milan",
+  "population_total": 3067071.0,
+  "prepared_on": "2026-09-17",
+  "schema": {
+    "aggregate": "proximity_time",
+    "categories": [
+      "outdoor",
+      "education",
+      "supplies",
+      "restaurant",
+      "transport",
+      "culture",
+      "physical",
+      "services",
+      "healthcare"
+    ],
+    "columns": {
+      "culture": {
+        "bicycle": "culture_bicycle",
+        "foot": "culture_foot"
+      },
+      "education": {
+        "bicycle": "education_bicycle",
+        "foot": "education_foot"
+      },
+      "healthcare": {
+        "bicycle": "healthcare_bicycle",
+        "foot": "healthcare_foot"
+      },
+      "outdoor": {
+        "bicycle": "outdoor_bicycle",
+        "foot": "outdoor_foot"
+      },
+      "physical": {
+        "bicycle": "physical_bicycle",
+        "foot": "physical_foot"
+      },
+      "proximity_time": {
+        "bicycle": "proximity_time_bicycle",
+        "foot": "proximity_time_foot"
+      },
+      "restaurant": {
+        "bicycle": "restaurant_bicycle",
+        "foot": "restaurant_foot"
+      },
+      "services": {
+        "bicycle": "services_bicycle",
+        "foot": "services_foot"
+      },
+      "supplies": {
+        "bicycle": "supplies_bicycle",
+        "foot": "supplies_foot"
+      },
+      "transport": {
+        "bicycle": "transport_bicycle",
+        "foot": "transport_foot"
+      }
+    },
+    "id_field": "h3",
+    "ignored_properties": [],
+    "modes": [
+      "bicycle",
+      "foot"
+    ],
+    "population_field": "population"
+  },
+  "slug": "milan",
+  "source_file": "milan.geojson.gz",
+  "thresholds_min": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    45
+  ]
+}

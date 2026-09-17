@@ -1,0 +1,2 @@
+# Only needed to prepare data and ingest papers, not to serve the chatbot.
+pypdf>=4

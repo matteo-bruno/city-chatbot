@@ -1,0 +1,5 @@
+# Runtime dependencies. httpx2 (used for optional geocoding) ships with the
+# anthropic SDK, so it is not listed separately.
+anthropic>=1.6,<2
+fastapi>=0.110
+uvicorn[standard]>=0.27

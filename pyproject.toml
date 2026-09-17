@@ -1,0 +1,32 @@
+[project]
+name = "city-chatbot"
+version = "0.1.0"
+description = "A light, portable chatbot over one city's 15-minute-accessibility indicators"
+requires-python = ">=3.10"
+dependencies = ["anthropic>=1.6,<2", "fastapi>=0.110", "uvicorn[standard]>=0.27"]
+
+[project.optional-dependencies]
+prep = ["pypdf>=4"]
+dev = ["pytest>=8", "httpx", "ruff"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+addopts = "-q"
+
+[tool.setuptools]
+packages = ["citychat"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "UP", "B"]
+ignore = [
+  # zip() over columns of equal length by construction; strict= adds only noise.
+  "B905",
+  # `ruff format` already wraps code; E501 then only fires on long string
+  # literals, which are more readable left on one line.
+  "E501",
+]

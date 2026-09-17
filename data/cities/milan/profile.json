@@ -1,0 +1,700 @@
+{
+  "modes": {
+    "bicycle": {
+      "categories": {
+        "culture": {
+          "covered_cells": 7498,
+          "gini": 0.2203,
+          "max_min": 36.0,
+          "min_min": 0.3,
+          "population_share_within": {
+            "10": 83.67,
+            "15": 98.38,
+            "20": 99.48,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 22.08
+          },
+          "population_weighted_mean_min": 7.4,
+          "population_weighted_percentiles_min": {
+            "10": 4.0,
+            "20": 4.9,
+            "30": 5.6,
+            "40": 6.3,
+            "50": 7.0,
+            "60": 7.8,
+            "70": 8.6,
+            "80": 9.6,
+            "90": 11.2
+          },
+          "unweighted_mean_min": 8.94
+        },
+        "education": {
+          "covered_cells": 7498,
+          "gini": 0.2059,
+          "max_min": 37.5,
+          "min_min": 0.7,
+          "population_share_within": {
+            "10": 95.01,
+            "15": 99.27,
+            "20": 99.96,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 48.4
+          },
+          "population_weighted_mean_min": 5.64,
+          "population_weighted_percentiles_min": {
+            "10": 3.5,
+            "20": 4.0,
+            "30": 4.4,
+            "40": 4.8,
+            "50": 5.1,
+            "60": 5.6,
+            "70": 6.1,
+            "80": 6.9,
+            "90": 8.4
+          },
+          "unweighted_mean_min": 7.45
+        },
+        "healthcare": {
+          "covered_cells": 7498,
+          "gini": 0.2437,
+          "max_min": 41.9,
+          "min_min": 0.6,
+          "population_share_within": {
+            "10": 81.2,
+            "15": 95.66,
+            "20": 99.11,
+            "30": 99.99,
+            "45": 100.0,
+            "5": 24.68
+          },
+          "population_weighted_mean_min": 7.55,
+          "population_weighted_percentiles_min": {
+            "10": 4.0,
+            "20": 4.8,
+            "30": 5.4,
+            "40": 6.1,
+            "50": 6.7,
+            "60": 7.5,
+            "70": 8.5,
+            "80": 9.9,
+            "90": 12.3
+          },
+          "unweighted_mean_min": 9.89
+        },
+        "outdoor": {
+          "covered_cells": 7498,
+          "gini": 0.2194,
+          "max_min": 27.8,
+          "min_min": 0.0,
+          "population_share_within": {
+            "10": 99.78,
+            "15": 99.97,
+            "20": 100.0,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 95.3
+          },
+          "population_weighted_mean_min": 2.83,
+          "population_weighted_percentiles_min": {
+            "10": 1.6,
+            "20": 1.9,
+            "30": 2.2,
+            "40": 2.4,
+            "50": 2.6,
+            "60": 2.9,
+            "70": 3.2,
+            "80": 3.5,
+            "90": 4.2
+          },
+          "unweighted_mean_min": 3.74
+        },
+        "physical": {
+          "covered_cells": 7498,
+          "gini": 0.1794,
+          "max_min": 29.0,
+          "min_min": 0.2,
+          "population_share_within": {
+            "10": 99.67,
+            "15": 99.93,
+            "20": 99.99,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 79.11
+          },
+          "population_weighted_mean_min": 4.13,
+          "population_weighted_percentiles_min": {
+            "10": 2.5,
+            "20": 3.0,
+            "30": 3.4,
+            "40": 3.7,
+            "50": 4.0,
+            "60": 4.3,
+            "70": 4.6,
+            "80": 5.1,
+            "90": 5.8
+          },
+          "unweighted_mean_min": 4.89
+        },
+        "restaurant": {
+          "covered_cells": 7498,
+          "gini": 0.2535,
+          "max_min": 35.0,
+          "min_min": 0.8,
+          "population_share_within": {
+            "10": 97.98,
+            "15": 99.83,
+            "20": 99.99,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 64.36
+          },
+          "population_weighted_mean_min": 4.61,
+          "population_weighted_percentiles_min": {
+            "10": 2.2,
+            "20": 2.7,
+            "30": 3.2,
+            "40": 3.8,
+            "50": 4.2,
+            "60": 4.8,
+            "70": 5.4,
+            "80": 6.2,
+            "90": 7.4
+          },
+          "unweighted_mean_min": 6.27
+        },
+        "services": {
+          "covered_cells": 7498,
+          "gini": 0.2472,
+          "max_min": 32.2,
+          "min_min": 0.6,
+          "population_share_within": {
+            "10": 99.38,
+            "15": 99.94,
+            "20": 100.0,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 83.69
+          },
+          "population_weighted_mean_min": 3.62,
+          "population_weighted_percentiles_min": {
+            "10": 1.8,
+            "20": 2.3,
+            "30": 2.6,
+            "40": 3.0,
+            "50": 3.3,
+            "60": 3.7,
+            "70": 4.2,
+            "80": 4.8,
+            "90": 5.7
+          },
+          "unweighted_mean_min": 5.04
+        },
+        "supplies": {
+          "covered_cells": 7498,
+          "gini": 0.2621,
+          "max_min": 32.1,
+          "min_min": 0.1,
+          "population_share_within": {
+            "10": 99.31,
+            "15": 99.92,
+            "20": 99.99,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 83.56
+          },
+          "population_weighted_mean_min": 3.56,
+          "population_weighted_percentiles_min": {
+            "10": 1.7,
+            "20": 2.1,
+            "30": 2.5,
+            "40": 2.9,
+            "50": 3.2,
+            "60": 3.6,
+            "70": 4.1,
+            "80": 4.8,
+            "90": 5.8
+          },
+          "unweighted_mean_min": 5.03
+        },
+        "transport": {
+          "covered_cells": 7498,
+          "gini": 0.2839,
+          "max_min": 30.5,
+          "min_min": 0.8,
+          "population_share_within": {
+            "10": 98.83,
+            "15": 99.95,
+            "20": 99.99,
+            "30": 100.0,
+            "45": 100.0,
+            "5": 79.53
+          },
+          "population_weighted_mean_min": 3.71,
+          "population_weighted_percentiles_min": {
+            "10": 1.8,
+            "20": 2.2,
+            "30": 2.5,
+            "40": 2.7,
+            "50": 3.1,
+            "60": 3.5,
+            "70": 4.1,
+            "80": 5.1,
+            "90": 6.6
+          },
+          "unweighted_mean_min": 5.3
+        }
+      },
+      "least_accessible_cells": [
+        {
+          "cell_id": "891f991a3b3ffff",
+          "lat": 45.572962,
+          "lon": 9.381062,
+          "population": 61.0,
+          "value_min": 33.5
+        },
+        {
+          "cell_id": "891f99cf08bffff",
+          "lat": 45.521648,
+          "lon": 9.07367,
+          "population": 135.0,
+          "value_min": 23.7
+        },
+        {
+          "cell_id": "891f991824bffff",
+          "lat": 45.497991,
+          "lon": 9.355473,
+          "population": 11.0,
+          "value_min": 22.9
+        },
+        {
+          "cell_id": "891f99cf05bffff",
+          "lat": 45.510146,
+          "lon": 9.065943,
+          "population": 7.0,
+          "value_min": 22.0
+        },
+        {
+          "cell_id": "891f995619bffff",
+          "lat": 45.450991,
+          "lon": 9.285931,
+          "population": 70.0,
+          "value_min": 21.1
+        }
+      ],
+      "most_accessible_cells": [
+        {
+          "cell_id": "891f99cee8fffff",
+          "lat": 45.551436,
+          "lon": 9.185926,
+          "population": 1093.0,
+          "value_min": 1.4
+        },
+        {
+          "cell_id": "891f99c5ab3ffff",
+          "lat": 45.580959,
+          "lon": 9.268822,
+          "population": 909.0,
+          "value_min": 1.5
+        },
+        {
+          "cell_id": "891f99c5853ffff",
+          "lat": 45.588706,
+          "lon": 9.265663,
+          "population": 898.0,
+          "value_min": 1.6
+        },
+        {
+          "cell_id": "891f99c587bffff",
+          "lat": 45.584265,
+          "lon": 9.275259,
+          "population": 901.0,
+          "value_min": 1.7
+        },
+        {
+          "cell_id": "891f99c584fffff",
+          "lat": 45.583831,
+          "lon": 9.270765,
+          "population": 835.0,
+          "value_min": 1.8
+        }
+      ],
+      "proximity_time": {
+        "covered_cells": 7498,
+        "gini": 0.1852,
+        "max_min": 33.5,
+        "min_min": 1.4,
+        "population_share_within": {
+          "10": 98.59,
+          "15": 99.89,
+          "20": 99.99,
+          "30": 100.0,
+          "45": 100.0,
+          "5": 64.37
+        },
+        "population_weighted_mean_min": 4.78,
+        "population_weighted_percentiles_min": {
+          "10": 3.1,
+          "20": 3.4,
+          "30": 3.8,
+          "40": 4.1,
+          "50": 4.5,
+          "60": 4.9,
+          "70": 5.3,
+          "80": 5.9,
+          "90": 6.9
+        },
+        "unweighted_mean_min": 6.28
+      }
+    },
+    "foot": {
+      "categories": {
+        "culture": {
+          "covered_cells": 7498,
+          "gini": 0.2825,
+          "max_min": 73.1,
+          "min_min": 0.5,
+          "population_share_within": {
+            "10": 27.19,
+            "15": 51.7,
+            "20": 72.2,
+            "30": 95.43,
+            "45": 99.33,
+            "5": 4.48
+          },
+          "population_weighted_mean_min": 15.9,
+          "population_weighted_percentiles_min": {
+            "10": 6.6,
+            "20": 8.6,
+            "30": 10.6,
+            "40": 12.6,
+            "50": 14.8,
+            "60": 16.9,
+            "70": 19.4,
+            "80": 22.5,
+            "90": 26.3
+          },
+          "unweighted_mean_min": 20.58
+        },
+        "education": {
+          "covered_cells": 7498,
+          "gini": 0.2834,
+          "max_min": 66.4,
+          "min_min": 1.2,
+          "population_share_within": {
+            "10": 52.9,
+            "15": 77.99,
+            "20": 89.71,
+            "30": 97.79,
+            "45": 99.86,
+            "5": 5.9
+          },
+          "population_weighted_mean_min": 11.65,
+          "population_weighted_percentiles_min": {
+            "10": 5.8,
+            "20": 6.8,
+            "30": 7.7,
+            "40": 8.6,
+            "50": 9.7,
+            "60": 11.2,
+            "70": 13.1,
+            "80": 15.6,
+            "90": 20.2
+          },
+          "unweighted_mean_min": 17.03
+        },
+        "healthcare": {
+          "covered_cells": 7498,
+          "gini": 0.3173,
+          "max_min": 80.0,
+          "min_min": 1.3,
+          "population_share_within": {
+            "10": 29.59,
+            "15": 53.85,
+            "20": 71.59,
+            "30": 89.43,
+            "45": 98.22,
+            "5": 2.2
+          },
+          "population_weighted_mean_min": 16.72,
+          "population_weighted_percentiles_min": {
+            "10": 6.8,
+            "20": 8.3,
+            "30": 10.1,
+            "40": 12.0,
+            "50": 14.2,
+            "60": 16.5,
+            "70": 19.5,
+            "80": 23.8,
+            "90": 30.6
+          },
+          "unweighted_mean_min": 23.54
+        },
+        "outdoor": {
+          "covered_cells": 7498,
+          "gini": 0.3042,
+          "max_min": 46.6,
+          "min_min": 0.1,
+          "population_share_within": {
+            "10": 93.32,
+            "15": 98.73,
+            "20": 99.75,
+            "30": 99.97,
+            "45": 100.0,
+            "5": 64.0
+          },
+          "population_weighted_mean_min": 5.0,
+          "population_weighted_percentiles_min": {
+            "10": 2.2,
+            "20": 2.8,
+            "30": 3.2,
+            "40": 3.7,
+            "50": 4.2,
+            "60": 4.7,
+            "70": 5.6,
+            "80": 6.8,
+            "90": 8.8
+          },
+          "unweighted_mean_min": 7.81
+        },
+        "physical": {
+          "covered_cells": 7498,
+          "gini": 0.2116,
+          "max_min": 49.2,
+          "min_min": 0.4,
+          "population_share_within": {
+            "10": 80.94,
+            "15": 96.43,
+            "20": 99.32,
+            "30": 99.95,
+            "45": 100.0,
+            "5": 14.48
+          },
+          "population_weighted_mean_min": 7.92,
+          "population_weighted_percentiles_min": {
+            "10": 4.6,
+            "20": 5.5,
+            "30": 6.1,
+            "40": 6.7,
+            "50": 7.3,
+            "60": 7.9,
+            "70": 8.8,
+            "80": 9.9,
+            "90": 11.9
+          },
+          "unweighted_mean_min": 10.63
+        },
+        "restaurant": {
+          "covered_cells": 7498,
+          "gini": 0.3438,
+          "max_min": 59.9,
+          "min_min": 0.7,
+          "population_share_within": {
+            "10": 59.9,
+            "15": 84.07,
+            "20": 94.55,
+            "30": 99.42,
+            "45": 99.99,
+            "5": 28.67
+          },
+          "population_weighted_mean_min": 9.44,
+          "population_weighted_percentiles_min": {
+            "10": 2.9,
+            "20": 3.9,
+            "30": 5.3,
+            "40": 6.9,
+            "50": 8.5,
+            "60": 10.1,
+            "70": 11.8,
+            "80": 14.0,
+            "90": 17.3
+          },
+          "unweighted_mean_min": 14.24
+        },
+        "services": {
+          "covered_cells": 7498,
+          "gini": 0.3336,
+          "max_min": 52.3,
+          "min_min": 0.9,
+          "population_share_within": {
+            "10": 79.51,
+            "15": 94.31,
+            "20": 98.49,
+            "30": 99.83,
+            "45": 100.0,
+            "5": 41.3
+          },
+          "population_weighted_mean_min": 7.03,
+          "population_weighted_percentiles_min": {
+            "10": 2.5,
+            "20": 3.3,
+            "30": 4.1,
+            "40": 4.9,
+            "50": 5.9,
+            "60": 7.1,
+            "70": 8.5,
+            "80": 10.2,
+            "90": 12.9
+          },
+          "unweighted_mean_min": 11.19
+        },
+        "supplies": {
+          "covered_cells": 7498,
+          "gini": 0.3486,
+          "max_min": 51.8,
+          "min_min": 0.3,
+          "population_share_within": {
+            "10": 80.05,
+            "15": 93.86,
+            "20": 98.01,
+            "30": 99.79,
+            "45": 100.0,
+            "5": 41.91
+          },
+          "population_weighted_mean_min": 6.97,
+          "population_weighted_percentiles_min": {
+            "10": 2.3,
+            "20": 3.2,
+            "30": 4.0,
+            "40": 4.9,
+            "50": 6.0,
+            "60": 7.0,
+            "70": 8.4,
+            "80": 10.0,
+            "90": 12.8
+          },
+          "unweighted_mean_min": 11.22
+        },
+        "transport": {
+          "covered_cells": 7498,
+          "gini": 0.3927,
+          "max_min": 53.8,
+          "min_min": 0.6,
+          "population_share_within": {
+            "10": 74.18,
+            "15": 87.76,
+            "20": 95.48,
+            "30": 99.54,
+            "45": 99.99,
+            "5": 45.57
+          },
+          "population_weighted_mean_min": 7.61,
+          "population_weighted_percentiles_min": {
+            "10": 2.4,
+            "20": 3.1,
+            "30": 3.7,
+            "40": 4.5,
+            "50": 5.5,
+            "60": 6.9,
+            "70": 8.9,
+            "80": 11.8,
+            "90": 16.1
+          },
+          "unweighted_mean_min": 12.15
+        }
+      },
+      "least_accessible_cells": [
+        {
+          "cell_id": "891f991a3b3ffff",
+          "lat": 45.572962,
+          "lon": 9.381062,
+          "population": 61.0,
+          "value_min": 55.9
+        },
+        {
+          "cell_id": "891f995214bffff",
+          "lat": 45.413197,
+          "lon": 9.063656,
+          "population": 9.0,
+          "value_min": 51.3
+        },
+        {
+          "cell_id": "891f99d5c6bffff",
+          "lat": 45.718108,
+          "lon": 9.134793,
+          "population": 45.0,
+          "value_min": 49.8
+        },
+        {
+          "cell_id": "891f995217bffff",
+          "lat": 45.414078,
+          "lon": 9.072612,
+          "population": 239.0,
+          "value_min": 48.8
+        },
+        {
+          "cell_id": "891f9954397ffff",
+          "lat": 45.379824,
+          "lon": 9.300825,
+          "population": 142.0,
+          "value_min": 46.0
+        }
+      ],
+      "most_accessible_cells": [
+        {
+          "cell_id": "891f99cdc6fffff",
+          "lat": 45.458503,
+          "lon": 9.169428,
+          "population": 2049.0,
+          "value_min": 2.7
+        },
+        {
+          "cell_id": "891f99186dbffff",
+          "lat": 45.525284,
+          "lon": 9.331946,
+          "population": 784.0,
+          "value_min": 2.8
+        },
+        {
+          "cell_id": "891f99cd883ffff",
+          "lat": 45.459378,
+          "lon": 9.178395,
+          "population": 1558.0,
+          "value_min": 2.8
+        },
+        {
+          "cell_id": "891f99c587bffff",
+          "lat": 45.584265,
+          "lon": 9.275259,
+          "population": 901.0,
+          "value_min": 2.9
+        },
+        {
+          "cell_id": "891f99c5ab7ffff",
+          "lat": 45.581393,
+          "lon": 9.273315,
+          "population": 802.0,
+          "value_min": 3.1
+        }
+      ],
+      "proximity_time": {
+        "covered_cells": 7498,
+        "gini": 0.267,
+        "max_min": 55.9,
+        "min_min": 2.7,
+        "population_share_within": {
+          "10": 59.51,
+          "15": 86.28,
+          "20": 96.3,
+          "30": 99.69,
+          "45": 99.98,
+          "5": 14.09
+        },
+        "population_weighted_mean_min": 9.8,
+        "population_weighted_percentiles_min": {
+          "10": 4.6,
+          "20": 5.5,
+          "30": 6.5,
+          "40": 7.5,
+          "50": 8.8,
+          "60": 10.1,
+          "70": 11.6,
+          "80": 13.5,
+          "90": 16.3
+        },
+        "unweighted_mean_min": 14.27
+      }
+    }
+  }
+}
