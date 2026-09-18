@@ -62,7 +62,13 @@ REFUSAL_FINISH_REASONS = frozenset(
 
 
 def sanitise_schema(schema: Any) -> Any:
-    """Rewrite JSON Schema into the subset Gemini's function declarations take."""
+    """Rewrite JSON Schema into the subset Gemini's function declarations take.
+
+    `properties` is a mapping of property *name* to schema, so it is recursed
+    into by value and never treated as a schema itself - otherwise a property
+    called `default` or `pattern` would be silently dropped as an unsupported
+    keyword.
+    """
     if isinstance(schema, list):
         return [sanitise_schema(item) for item in schema]
     if not isinstance(schema, dict):
@@ -75,9 +81,9 @@ def sanitise_schema(schema: Any) -> Any:
         if key == "type" and isinstance(value, str) and value.lower() in SCHEMA_TYPES:
             # The Type enum is upper case; proto3 JSON is case-sensitive.
             out[key] = value.upper()
-        elif key in ("properties", "items", "anyOf", "oneOf"):
-            out[key] = sanitise_schema(value)
-        elif key == "properties" or isinstance(value, (dict, list)):
+        elif key == "properties" and isinstance(value, dict):
+            out[key] = {name: sanitise_schema(sub) for name, sub in value.items()}
+        elif key in ("items", "anyOf", "oneOf") or isinstance(value, (dict, list)):
             out[key] = sanitise_schema(value)
         else:
             out[key] = value
@@ -206,6 +212,7 @@ class GeminiProvider(Provider):
                 "No Gemini API key configured. Set GEMINI_API_KEY and restart.", kind="auth"
             )
 
+        server_error_retried = False
         while True:
             text_parts: list[str] = []
             calls: list[ToolCall] = []
@@ -227,11 +234,23 @@ class GeminiProvider(Provider):
                         if response.status_code >= 400:
                             response.read()
                             detail = _error_detail(response)
+                            logger.debug(
+                                "gemini %s -> %s %s",
+                                self.model,
+                                response.status_code,
+                                (response.text or "")[:2000],
+                            )
                             dropped = self._drop_unsupported_feature(detail)
                             if dropped:
                                 logger.warning(
                                     "%s rejected %s; retrying without it", self.model, dropped
                                 )
+                                retry = True
+                            elif response.status_code >= 500 and not server_error_retried:
+                                logger.warning(
+                                    "gemini returned %s; retrying once", response.status_code
+                                )
+                                server_error_retried = True
                                 retry = True
                             else:
                                 raise ProviderError(self._describe_status(response, detail))
@@ -362,7 +381,12 @@ class GeminiProvider(Provider):
         if code == 429:
             return "Rate limited or out of quota on the Gemini API. Please retry in a moment."
         if code >= 500:
-            return "The Gemini API returned a server error. Please retry."
+            return (
+                f"The Gemini API returned {code} after a retry. This is either a transient "
+                "fault or a request this model rejects; the API does not distinguish them. "
+                "Run `python scripts/check_provider.py --probe` to find out which. "
+                f"({detail or 'no detail returned'})"
+            )
         return f"The Gemini API rejected the request: {detail}"
 
     def _list_models_hint(self) -> str:
@@ -385,6 +409,32 @@ class GeminiProvider(Provider):
         if not names:
             return ""
         return " Available: " + ", ".join(sorted(names)[:25]) + "."
+
+    def probe(self, *, system: bool, tools: bool, text: str = "Say OK.") -> dict:
+        """One non-streaming request with parts of the payload left out.
+
+        Used by `scripts/check_provider.py --probe` to tell a transient fault
+        from a payload this model will not accept: if the bare request works
+        and adding the function declarations does not, the schemas are at
+        fault, not the network.
+        """
+        body: dict[str, Any] = {
+            "contents": [{"role": "user", "parts": [{"text": text}]}],
+            "generationConfig": {"maxOutputTokens": 256},
+        }
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": self.system_prompt}]}
+        if tools and self._function_declarations:
+            body["tools"] = [{"functionDeclarations": self._function_declarations}]
+
+        with self._client() as client:
+            response = client.post(self._url("generateContent"), headers=self._headers(), json=body)
+        return {
+            "status": response.status_code,
+            "ok": response.status_code < 400,
+            "detail": "" if response.status_code < 400 else _error_detail(response),
+            "body_bytes": len(response.content),
+        }
 
     def list_models(self) -> list[dict]:
         """Models this key can use, for `scripts/check_provider.py`."""

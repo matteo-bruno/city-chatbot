@@ -325,13 +325,82 @@ def test_an_unknown_model_lists_the_available_ones(context):
     assert "gemini-2.5-flash" in message
 
 
-def test_rate_limiting_and_server_errors_are_explained(context):
+def test_rate_limiting_is_explained(context):
     from citychat.providers.base import ProviderError
 
-    for status, phrase in ((429, "Rate limited"), (503, "server error")):
-        stub = GeminiStub(error=(status, {"error": {"message": "boom"}}))
-        with pytest.raises(ProviderError, match=phrase):
-            drive(provider(context, stub), [{"role": "user", "parts": [{"text": "hi"}]}])
+    stub = GeminiStub(error=(429, {"error": {"message": "quota"}}))
+    with pytest.raises(ProviderError, match="Rate limited"):
+        drive(provider(context, stub), [{"role": "user", "parts": [{"text": "hi"}]}])
+
+
+def test_a_server_error_is_retried_once_then_reported_with_its_detail(context):
+    """A Gemini 500 can be transient or a rejected body; it never says which."""
+    from citychat.providers.base import ProviderError
+
+    stub = GeminiStub(error=(500, {"error": {"message": "Internal error"}}), error_times=2)
+    with pytest.raises(ProviderError) as excinfo:
+        drive(provider(context, stub), [{"role": "user", "parts": [{"text": "hi"}]}])
+
+    message = str(excinfo.value)
+    assert "500" in message
+    assert "Internal error" in message  # the detail must not be swallowed
+    assert "--probe" in message
+    assert len(stub.requests) == 2  # one retry, not an endless loop
+
+
+def test_a_transient_server_error_recovers_on_the_retry(context):
+    stub = GeminiStub(
+        script=[[text_chunk("recovered", finish="STOP")]],
+        error=(503, {"error": {"message": "overloaded"}}),
+        error_times=1,
+    )
+    _, turn = drive(provider(context, stub), [{"role": "user", "parts": [{"text": "hi"}]}])
+    assert turn.text == "recovered"
+    assert len(stub.requests) == 2
+
+
+def test_the_probe_can_drop_the_system_prompt_and_the_tools(context):
+    stub = GeminiStub(script=[[text_chunk("OK", finish="STOP")]] * 3)
+    prov = provider(context, stub)
+
+    assert prov.probe(system=False, tools=False)["ok"]
+    assert "systemInstruction" not in stub.requests[0]
+    assert "tools" not in stub.requests[0]
+
+    prov.probe(system=True, tools=False)
+    assert "systemInstruction" in stub.requests[1]
+    assert "tools" not in stub.requests[1]
+
+    prov.probe(system=True, tools=True)
+    assert "functionDeclarations" in stub.requests[2]["tools"][0]
+    # A probe is a plain request, not the streaming endpoint.
+    assert "generateContent" in stub.urls[0]
+    assert "streamGenerateContent" not in stub.urls[0]
+
+
+def test_the_probe_reports_a_failure_without_raising(context):
+    stub = GeminiStub(
+        error=(500, {"error": {"message": "bad function declaration"}}), error_times=9
+    )
+    result = provider(context, stub).probe(system=True, tools=True)
+    assert result["ok"] is False
+    assert result["status"] == 500
+    assert "bad function declaration" in result["detail"]
+
+
+def test_a_property_named_like_a_dropped_keyword_survives():
+    """`properties` is a name -> schema map, not a schema."""
+    cleaned = sanitise_schema(
+        {
+            "type": "object",
+            "properties": {
+                "default": {"type": "string"},
+                "pattern": {"type": "integer"},
+            },
+        }
+    )
+    assert set(cleaned["properties"]) == {"default", "pattern"}
+    assert cleaned["properties"]["default"]["type"] == "STRING"
 
 
 def test_search_grounding_is_dropped_and_retried_when_rejected(context):

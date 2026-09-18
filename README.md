@@ -299,6 +299,22 @@ python scripts/check_provider.py --dry-run       # configuration only, no API ca
 
 If the configured model does not exist, the error names the models that do.
 
+### When a Gemini call fails
+
+Gemini answers some malformed requests with **500 INTERNAL**, which looks
+identical to a transient outage. The provider retries a 5xx once and then
+reports the API's own detail, but to tell the two apart:
+
+```bash
+python scripts/check_provider.py --probe    # add one piece of the payload at a time
+python scripts/check_provider.py --debug    # log the raw status and body
+```
+
+`--probe` sends the models list, then a bare request, then the same request
+with the system prompt, then with the tool declarations. Wherever it first
+fails names the cause: the key, the model id, an unsupported system
+instruction, or a function-declaration schema this model will not take.
+
 ### Claude model options
 
 Model ids are complete as written below — never append a date suffix.
@@ -399,7 +415,7 @@ core-city figures.
 
 ```bash
 pip install -r requirements.txt pytest
-pytest                     # 179 tests, no API key or network needed
+pytest                     # 191 tests, no API key or network needed
 ```
 
 The whole conversation loop is tested twice over, once per provider, with no
