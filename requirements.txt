@@ -1,5 +1,8 @@
-# Runtime dependencies. httpx2 (used for optional geocoding) ships with the
-# anthropic SDK, so it is not listed separately.
+# Runtime dependencies.
 anthropic>=1.6,<2
 fastapi>=0.110
+# The Gemini provider and the optional geocoder speak HTTP directly. Declared
+# explicitly rather than relying on whichever client the Anthropic SDK happens
+# to pull in (1.x uses httpx2); citychat/http.py accepts either.
+httpx>=0.27
 uvicorn[standard]>=0.27

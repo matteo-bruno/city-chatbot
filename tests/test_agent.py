@@ -300,10 +300,11 @@ def test_trim_history_with_no_limit_keeps_all(limit, anthropic_provider):
 def bad_request(message: str):
     """A real BadRequestError, as the SDK would raise it for a rejected field."""
     import anthropic
-    import httpx2
 
-    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
-    response = httpx2.Response(400, request=request, json={"error": {"message": message}})
+    from citychat.http import httpx
+
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(400, request=request, json={"error": {"message": message}})
     return anthropic.BadRequestError(message, response=response, body=None)
 
 

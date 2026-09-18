@@ -351,7 +351,7 @@ def test_search_grounding_is_dropped_and_retried_when_rejected(context):
 
 
 def test_unparseable_sse_chunks_are_skipped(context):
-    import httpx2 as httpx
+    from citychat.http import httpx
 
     def handler(request):
         return httpx.Response(

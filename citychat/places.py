@@ -31,6 +31,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 from . import geo
+from .http import httpx
 
 DEFAULT_RADIUS_M = 800.0
 
@@ -239,8 +240,6 @@ class NominatimGeocoder:
             pass
 
     def geocode(self, query: str, city_hint: str = "") -> Place | None:
-        import httpx2 as httpx  # bundled with the anthropic SDK
-
         full_query = (
             f"{query}, {city_hint}"
             if city_hint and normalise(city_hint) not in normalise(query)

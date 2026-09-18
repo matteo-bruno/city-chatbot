@@ -3,11 +3,16 @@ name = "city-chatbot"
 version = "0.1.0"
 description = "A light, portable chatbot over one city's 15-minute-accessibility indicators"
 requires-python = ">=3.10"
-dependencies = ["anthropic>=1.6,<2", "fastapi>=0.110", "uvicorn[standard]>=0.27"]
+dependencies = [
+  "anthropic>=1.6,<2",
+  "fastapi>=0.110",
+  "httpx>=0.27",
+  "uvicorn[standard]>=0.27",
+]
 
 [project.optional-dependencies]
 prep = ["pypdf>=4"]
-dev = ["pytest>=8", "httpx", "ruff"]
+dev = ["pytest>=8", "ruff"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

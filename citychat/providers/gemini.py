@@ -1,8 +1,8 @@
 """Gemini provider, over the Generative Language REST API.
 
-Raw HTTP rather than the `google-genai` SDK, deliberately: `httpx2` already
-ships with the Anthropic SDK, so this adds no dependency, and the wire format
-is small and documented. Everything Gemini-specific is in this file.
+Raw HTTP rather than the `google-genai` SDK, deliberately: the wire format is
+small and documented, and one HTTP client covers both providers. Everything
+Gemini-specific is in this file.
 
     POST {base}/v1beta/models/{model}:streamGenerateContent?alt=sse
     x-goog-api-key: <key>
@@ -29,6 +29,7 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
+from ..http import httpx
 from .base import (
     STOP_END_TURN,
     STOP_MAX_TOKENS,
@@ -129,8 +130,6 @@ class GeminiProvider(Provider):
     # ---------------------------------------------------------------- plumbing
 
     def _client(self):
-        import httpx2 as httpx
-
         kwargs: dict[str, Any] = {"timeout": self.timeout}
         if self._transport is not None:
             kwargs["transport"] = self._transport
@@ -202,8 +201,6 @@ class GeminiProvider(Provider):
     # --------------------------------------------------------------- streaming
 
     def stream(self, messages: list[dict]) -> Iterator[dict]:
-        import httpx2 as httpx
-
         if not self.api_key:
             raise ProviderError(
                 "No Gemini API key configured. Set GEMINI_API_KEY and restart.", kind="auth"
@@ -371,8 +368,6 @@ class GeminiProvider(Provider):
     def _list_models_hint(self) -> str:
         """On a 404, name the models the key can actually use."""
         try:
-            import httpx2 as httpx
-
             with self._client() as client:
                 response = client.get(
                     f"{self.base_url}/{API_VERSION}/models",

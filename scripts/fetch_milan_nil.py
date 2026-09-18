@@ -38,10 +38,7 @@ def main() -> int:
     ap.add_argument("--timeout", type=float, default=60.0)
     args = ap.parse_args()
 
-    try:
-        import httpx2 as httpx
-    except ImportError:
-        import httpx  # type: ignore[no-redef]
+    from citychat.http import httpx
 
     print(f"downloading {args.url}")
     try:

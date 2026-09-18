@@ -398,8 +398,8 @@ core-city figures.
 ## Development
 
 ```bash
-pip install -r requirements.txt pytest httpx
-pytest                     # 116 tests, no API key or network needed
+pip install -r requirements.txt pytest
+pytest                     # 179 tests, no API key or network needed
 ```
 
 The whole conversation loop is tested twice over, once per provider, with no
@@ -430,6 +430,7 @@ citychat/
   knowledge.py   always-on core docs + BM25 over the paper corpus
   context.py     binds the above into one object
   prompt.py      system prompt assembly (must stay byte-stable)
+  http.py        resolves httpx (or httpx2) once, for both providers
   tools.py       provider-neutral tool schemas and dispatch
   agent.py       the streaming conversation loop, provider-neutral
   providers/

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-import httpx2 as httpx
+from citychat.http import httpx
 
 
 def sse(chunks: list[dict]) -> bytes:
